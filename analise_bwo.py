@@ -1,4 +1,3 @@
-
 import arff
 import numpy as np
 import pandas as pd
@@ -23,7 +22,7 @@ def _generate_new_position(x0: list = None, dof: int = None, bounds: list = None
     if dof:
         return [uniform(-1, 1) for _ in range(0, dof)]
 
-def black_widow_optimization(func, dof, bounds, npop, maxiter, pp, cr, pm, disp=False):
+def black_widow_optimization(func, dof, bounds, npop, maxiter, pp, cr, pm, disp=False, output_lines=None):
     """
     Executa o algoritmo Black Widow Optimization para encontrar o mínimo de uma função.
 
@@ -38,6 +37,7 @@ def black_widow_optimization(func, dof, bounds, npop, maxiter, pp, cr, pm, disp=
                    Um valor de 1 significa que todos os filhotes sobrevivem.
     - pm (float): Taxa de mutação (mutation rate).
     - disp (bool): Se True, mostra o progresso a cada iteração.
+    - output_lines (list): Lista para armazenar as linhas de saída.
     """
     nr = int(npop * pp)
     nm = int(npop * pm)
@@ -56,8 +56,12 @@ def black_widow_optimization(func, dof, bounds, npop, maxiter, pp, cr, pm, disp=
             gbest_val = current_best_val
             gbest_pos = pop[0]
 
+        log_line = f'> Iteração: {epoch+1:>{spacer}} | Melhor Custo (1-acc): {gbest_val:0.6f}'
         if disp:
-            print(f'> Iteração: {epoch+1:>{spacer}} | Melhor Custo (1-acc): {gbest_val:0.6f}')
+            print(log_line)
+        if output_lines is not None:
+            output_lines.append(f'`{log_line}`')
+
 
         pop1 = deepcopy(pop[:nr])
         pop2 = []
@@ -159,23 +163,37 @@ def main():
     CR = 0.44
     PM = 0.4
 
+    output_lines = ["# Análise de Otimização Black Widow"]
+
     for file_path in arff_files:
         print(f"\n{'='*20} Analisando o arquivo: {file_path} {'='*20}")
+        output_lines.append(f"\n## Analisando o arquivo: `{file_path}`\n")
+        
         try:
             X, y, attributes = load_arff_file(file_path)
             num_features = X.shape[1]
-            print(f"Arquivo carregado e processado: {X.shape[0]} instâncias, {num_features} atributos (após one-hot encoding).")
+            
+            log_line = f"Arquivo carregado e processado: {X.shape[0]} instâncias, {num_features} atributos (após one-hot encoding)."
+            print(log_line)
+            output_lines.append(log_line)
 
             bounds = [(0, 1)] * num_features
             objective_func = create_objective_function(X, y, threshold=0.5)
 
             print("\nIniciando otimização BWO com os seguintes metaparâmetros:")
+            output_lines.append("\n### Metaparâmetros da Otimização BWO")
+            output_lines.append(f"- **Tamanho da População (npop):** `{NPOP}`")
+            output_lines.append(f"- **Gerações (maxiter):** `{MAXITER}`")
+            output_lines.append(f"- **% de Procriação (pp):** `{PP}`")
+            output_lines.append(f"- **Taxa de Sobrevivência de Filhotes (cr):** `{CR}`")
+            output_lines.append(f"- **Taxa de Mutação (pm):** `{PM}`\n")
             print(f"- Tamanho da População (npop): {NPOP}")
             print(f"- Gerações (maxiter): {MAXITER}")
             print(f"- % de Procriação (pp): {PP}")
             print(f"- Taxa de Sobrevivência de Filhotes (cr): {CR}")
             print(f"- Taxa de Mutação (pm): {PM}\n")
 
+            output_lines.append("### Log de Iterações\n```")
             start_time = time.time()
             best_cost, best_solution = black_widow_optimization(
                 func=objective_func,
@@ -186,12 +204,16 @@ def main():
                 pp=PP,
                 cr=CR,
                 pm=PM,
-                disp=True
+                disp=True,
+                output_lines=output_lines
             )
             end_time = time.time()
+            output_lines.append("```")
 
             if best_solution is None:
-                print("\n--- A otimização não encontrou uma solução válida. ---")
+                log_line = "\n--- A otimização não encontrou uma solução válida. ---"
+                print(log_line)
+                output_lines.append(f"\n**{log_line.strip()}**")
                 continue
 
             final_accuracy = 1.0 - best_cost
@@ -200,20 +222,45 @@ def main():
             selected_features_names = [attributes[i] for i in selected_features_indices]
 
             print("\n--- Resultados da Otimização BWO ---")
-            print(f"Tempo de execução: {end_time - start_time:.2f} segundos")
-            print(f"Melhor acurácia encontrada: {final_accuracy:.4f}")
-            print(f"Número de atributos selecionados: {len(selected_features_names)}")
+            output_lines.append("\n### Resultados da Otimização BWO")
+
+            log_line = f"Tempo de execução: {end_time - start_time:.2f} segundos"
+            print(log_line)
+            output_lines.append(f"- **Tempo de execução:** `{end_time - start_time:.2f} segundos`")
+
+            log_line = f"Melhor acurácia encontrada: {final_accuracy:.4f}"
+            print(log_line)
+            output_lines.append(f"- **Melhor acurácia encontrada:** `{final_accuracy:.4f}`")
+
+            log_line = f"Número de atributos selecionados: {len(selected_features_names)}"
+            print(log_line)
+            output_lines.append(f"- **Número de atributos selecionados:** `{len(selected_features_names)}`")
+
             print("Atributos selecionados:")
+            output_lines.append("- **Atributos selecionados:**")
             if selected_features_names:
                 for name in selected_features_names:
                     print(f"- {name}")
+                    output_lines.append(f"  - `{name}`")
             else:
-                print("Nenhum atributo foi selecionado pela otimização.")
+                log_line = "Nenhum atributo foi selecionado pela otimização."
+                print(log_line)
+                output_lines.append(f"  - {log_line}")
 
         except FileNotFoundError:
-            print(f"ERRO: Arquivo '{file_path}' não encontrado. Verifique o nome e o caminho.")
+            log_line = f"ERRO: Arquivo '{file_path}' não encontrado. Verifique o nome e o caminho."
+            print(log_line)
+            output_lines.append(f"**ERRO:** Arquivo `{file_path}` não encontrado. Verifique o nome e o caminho.")
         except Exception as e:
-            print(f"Ocorreu um erro ao processar o arquivo {file_path}: {e}")
+            log_line = f"Ocorreu um erro ao processar o arquivo {file_path}: {e}"
+            print(log_line)
+            output_lines.append(f"**ERRO:** Ocorreu um erro ao processar o arquivo `{file_path}`: {e}")
+
+    with open("analise_bwo_output.md", "w", encoding="utf-8") as f:
+        f.write("\n".join(output_lines))
+    
+    print("\nAnálise concluída. Resultados salvos em 'analise_bwo_output.md'")
+
 
 if __name__ == "__main__":
     main()
