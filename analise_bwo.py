@@ -158,7 +158,7 @@ def main():
     arff_files = ['Base_Mat..arff', 'Base_Port..arff']
     
     NPOP = 20
-    MAXITER = 30
+    MAXITER = 15
     PP = 0.6
     CR = 0.44
     PM = 0.4
